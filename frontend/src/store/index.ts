@@ -8,6 +8,7 @@ import yearlyMeanByDayReducer from './slices/YearlyMeanByDaySlice.js';
 import referenceYearlyHourlyInterpolatedByDayReducer from './slices/ReferenceYearlyHourlyInterpolatedByDaySlice.js';
 import liveDataReducer from './slices/liveDataSlice.js';
 import rollingAverageDataReducer from './slices/rollingAverageDataSlice.js';
+import dailyAverageDataReducer from './slices/dailyAverageDataSlice.js';
 import historicalDailyDataReducer from './slices/historicalDataForStationSlice.js';
 import geoJsonReducer from './slices/geoJsonSlice.js';
 import dailyRecentByDateReducer from './slices/DailyRecentByDateSlice.js';
@@ -27,6 +28,7 @@ export const store = configureStore({
         rememberedCities: rememberedCitiesReducer,
         selectedDate: selectedDateReducer,
         rollingAverageData: rollingAverageDataReducer,
+        dailyAverageData: dailyAverageDataReducer,
         historicalDailyData: historicalDailyDataReducer,
         dailyRecentByDate: dailyRecentByDateReducer,
         stationDateRanges: stationDateRangesReducer,

@@ -16,4 +16,8 @@ export const plots: PlotRegistryEntry[] = [
         id: 'ice-and-hot-days',
         loader: () => import('./iceAndHotDays/View'),
     },
+    {
+        id: 'stats',
+        loader: () => import('./Stats/View'),
+    },
 ];

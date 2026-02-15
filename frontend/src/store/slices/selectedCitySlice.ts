@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { addRememberedCity } from './rememberedCitiesSlice.js';
 import { fetchRollingAverageData, resetRollingAverageData } from './rollingAverageDataSlice.js';
+import { fetchDailyAverageData, resetDailyAverageData } from './dailyAverageDataSlice.js';
 import type { AppThunk, RootState } from '../index.js';
 import { selectSelectedStationId } from '../selectors/selectedItemSelectors.js';
 import { useAppSelector } from '../hooks/useAppSelector.js';
@@ -51,6 +52,7 @@ export const selectCity = (
     if (!cityId) {
         dispatch(setSelectedCity(null));
         dispatch(resetRollingAverageData());
+        dispatch(resetDailyAverageData());
         dispatch(resetIceAndHotDaysData());
         dispatch(setCityChangeRenderComplete(true));
         dispatch(setIceAndHotDaysRenderComplete(true));
@@ -71,6 +73,7 @@ export const selectCity = (
     const stationId = selectSelectedStationId(stateAfterSelection);
 
     dispatch(resetRollingAverageData());
+    dispatch(resetDailyAverageData());
     dispatch(resetIceAndHotDaysData());
 
     let didDispatchFetch = false;
@@ -80,6 +83,7 @@ export const selectCity = (
 
         await Promise.allSettled([
             dispatch(fetchRollingAverageData({ stationId })).unwrap().catch(() => undefined),
+            dispatch(fetchDailyAverageData({ stationId })).unwrap().catch(() => undefined),
             dispatch(fetchIceAndHotDaysData({ stationId })).unwrap().catch(() => undefined),
         ]);
     }

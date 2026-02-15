@@ -54,6 +54,7 @@
         "@types/topojson-client": "^3.1.5",
         "@vitejs/plugin-react": "^5.0.0",
         "typescript": "^5.9.2",
-        "vite-plugin-node-polyfills": "^0.24.0"
+        "vite-plugin-node-polyfills": "^0.24.0",
+        "vitest": "^4.0.18"
     }
 }
