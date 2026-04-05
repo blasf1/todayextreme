@@ -24,9 +24,11 @@
     },
     "scripts": {
         "start": "vite",
+        "start:remote": "vite --host 0.0.0.0 --port 5173",
         "start:now": "VITE_APP_NOW=2025-11-28T12:00:00Z vite",
         "build": "vite build",
-        "serve": "vite preview"
+        "serve": "vite preview",
+        "serve:remote": "vite preview --host 0.0.0.0 --port 4173"
     },
     "eslintConfig": {
         "extends": [

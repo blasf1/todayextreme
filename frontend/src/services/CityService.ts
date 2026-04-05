@@ -4,9 +4,14 @@ import type { CityDictionary, CityJSON, ICity } from '../classes/City';
 import type { IStation } from '../classes/Station';
 import { fetchAndParseCSV, parseOptionalFloat, isValidNumber } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE, type CountryProfile } from '../config/countryProfiles.js';
+
+const SPAIN_CITY_STATION_OVERRIDES: Record<string, string> = {
+    albacete: '8175',
+};
 
 /**
- * Service to fetch German cities from CSV file
+ * Service to fetch country-specific cities from CSV file
  * 
  * Example CSV data:
  * 
@@ -20,9 +25,9 @@ import { buildUrl } from './utils/serviceUtils.js';
  * 
  * @returns {Promise<Array>} Array of city data objects
  */
-export const fetchGermanCities = async (): Promise<City[]> => {
+export const fetchCountryCities = async (countryProfile: CountryProfile = ACTIVE_COUNTRY_PROFILE): Promise<City[]> => {
     return fetchAndParseCSV<City[]>(
-        buildUrl('/german_cities_p5000.csv', false),
+        buildUrl(countryProfile.cityDataPath, false),
         (rows) => {
             const cities: City[] = [];
 
@@ -43,9 +48,13 @@ export const fetchGermanCities = async (): Promise<City[]> => {
         },
         {
             validateHeaders: ['city_name', 'lat', 'lon'],
-            errorContext: 'German cities'
+            errorContext: `${countryProfile.label} cities`
         }
     );
+};
+
+export const fetchGermanCities = async (): Promise<City[]> => {
+    return fetchCountryCities();
 };
 
 /**
@@ -84,18 +93,49 @@ export const findClosestWeatherStationsForCities = (
 
     if (stationList.length === 0) {
         console.warn("No stations available to find nearest for cities");
-        return Object.fromEntries(
-            Object.values(cities).map(city => {
-                const instance = city instanceof City ? city : toCityInstance(city);
-                return [instance.id, instance];
-            })
-        );
+
+        // Keep explicit city-to-station overrides even when station metadata is unavailable.
+        const fallbackResult: CityDictionary = {};
+        for (const cityLike of Object.values(cities)) {
+            const city = cityLike instanceof City ? cityLike : toCityInstance(cityLike);
+            if (ACTIVE_COUNTRY_PROFILE.id === 'spain') {
+                const normalizedCityName = city.name.trim().toLowerCase();
+                const forcedStationId = SPAIN_CITY_STATION_OVERRIDES[normalizedCityName];
+                if (forcedStationId) {
+                    fallbackResult[city.id] = new City(
+                        city.id,
+                        city.name,
+                        city.lat,
+                        city.lon,
+                        forcedStationId,
+                        city.distanceToStation,
+                    );
+                    continue;
+                }
+            }
+
+            fallbackResult[city.id] = city;
+        }
+
+        return fallbackResult;
     }
 
     const result: CityDictionary = {};
 
     for (const cityLike of Object.values(cities)) {
         const city = cityLike instanceof City ? cityLike : toCityInstance(cityLike);
+
+        if (ACTIVE_COUNTRY_PROFILE.id === 'spain') {
+            const normalizedCityName = city.name.trim().toLowerCase();
+            const forcedStationId = SPAIN_CITY_STATION_OVERRIDES[normalizedCityName];
+            const forcedStation = forcedStationId ? stations[forcedStationId] : undefined;
+
+            if (forcedStation && Number.isFinite(forcedStation.lat) && Number.isFinite(forcedStation.lon)) {
+                const forcedDistance = calculateDistance(city.lat, city.lon, forcedStation.lat, forcedStation.lon);
+                result[city.id] = city.withNearestStation(forcedStation.id, forcedDistance);
+                continue;
+            }
+        }
 
         let nearestStation: IStation | null = null;
         let minDistance = Number.POSITIVE_INFINITY;

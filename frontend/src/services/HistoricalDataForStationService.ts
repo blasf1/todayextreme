@@ -2,6 +2,7 @@ import DateRange from "../classes/DateRange";
 import DailyRecentByStation from "../classes/DailyRecentByStation";
 import { fetchAndParseCSV, parseOptionalFloat, replaceInvalidWithUndefined } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
 
 /**
  * Service to fetch daily weather station data from CSV file
@@ -24,8 +25,10 @@ export interface DailyWeatherStationDataResponse {
 }
 
 export const fetchDailyWeatherStationData = async (stationId: string): Promise<DailyWeatherStationDataResponse> => {
+    const dataPath = `${ACTIVE_COUNTRY_PROFILE.dataRoot}/daily_recent_by_station/${stationId}.csv`;
+
     return fetchAndParseCSV<DailyWeatherStationDataResponse>(
-        buildUrl(`/data/daily_recent_by_station/${stationId}.csv`, true, 'yyyyLLddHH'),
+        buildUrl(dataPath, true, 'yyyyLLddHH'),
         (rows) => {
             if (rows.length === 0) {
                 throw new Error(`No data found for station ${stationId}.`);

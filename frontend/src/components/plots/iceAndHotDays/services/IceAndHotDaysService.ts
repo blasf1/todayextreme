@@ -1,6 +1,7 @@
 import XYData from '../../../../classes/XYData.js';
 import { fetchAndParseJSON } from '../../../../services/utils/jsonUtils.js';
 import { buildUrl } from '../../../../services/utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../../../../config/countryProfiles.js';
 import type { IIceAndHotDaysForStation } from '../classes/IceAndHotDaysForStation.js';
 
 /**
@@ -47,7 +48,7 @@ import type { IIceAndHotDaysForStation } from '../classes/IceAndHotDaysForStatio
  */
 export const fetchIceAndHotDays = async (stationId: string): Promise<IIceAndHotDaysForStation> => {
     return fetchAndParseJSON<IIceAndHotDaysForStation>(
-        buildUrl(`/data/ice_and_hot_days/${stationId}_ice_and_hot_days_historical.json`, true, 'yyyyLLdd'),
+        buildUrl(`${ACTIVE_COUNTRY_PROFILE.dataRoot}/ice_and_hot_days/${stationId}_ice_and_hot_days_historical.json`, true, 'yyyyLLdd'),
         (data) => {
             return {
                 stationId,

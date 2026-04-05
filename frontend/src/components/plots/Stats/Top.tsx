@@ -23,9 +23,9 @@ const StatsTop = memo(() => {
 
     return (
         <PlotDescription style={containerStyle}>
-            <h2>Klimastatistiken</h2>
+            <h2>Climate Statistics</h2>
             <p>
-                Diese Sektion zeigt berechnete Klimastatistiken für die ausgewählte Stadt.
+                This section shows calculated climate statistics for the selected city.
             </p>
         </PlotDescription>
     );

@@ -53,13 +53,11 @@ export const setDateAndFetchHistoricalData = (isoDateString: string): AppThunk =
             .catch(() => undefined)
     );
 
-    if (!dt.hasSame(getNow(), 'day')) {
-        tasks.push(
-            dispatch(fetchDailyRecentByDate({ year: dt.year, month: dt.month, day: dt.day }))
-                .unwrap()
-                .catch(() => undefined)
-        );
-    }
+    tasks.push(
+        dispatch(fetchDailyRecentByDate({ year: dt.year, month: dt.month, day: dt.day }))
+            .unwrap()
+            .catch(() => undefined)
+    );
 
     await Promise.allSettled(tasks);
 

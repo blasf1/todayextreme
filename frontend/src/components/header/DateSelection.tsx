@@ -295,7 +295,7 @@ const DateSelection = () => {
                     onMouseEnter={() => canUseYesterday && setHoveredButton('yesterday')}
                     onMouseLeave={() => canUseYesterday && setHoveredButton(null)}
                 >
-                    Gestern
+                    Yesterday
                 </div>
 
                 <div
@@ -309,7 +309,7 @@ const DateSelection = () => {
                     onMouseEnter={() => canInteract && setHoveredButton('today')}
                     onMouseLeave={() => canInteract && setHoveredButton(null)}
                 >
-                    Heute
+                    Today
                 </div>
 
                 <div

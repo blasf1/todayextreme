@@ -18,15 +18,15 @@ const IceAndHotDaysLeftSide = memo(() => {
 
     return (
         <PlotDescription style={containerStyle}>
-            <h2>Eistage und Hitzetage</h2>
+            <h2>Ice Days and Hot Days</h2>
             <p>
-                Diese Grafik zeigt die Entwicklung extremer Temperaturtage über die Zeit. Die unteren, blauen Balken stellen die Anzahl der Eistage dar – Tage mit einer Höchsttemperatur bis zu 0°C. Die oberen, roten Balken zeigen die Hitzetage mit Höchsttemperaturen über 30°C.
+                This chart shows how extreme temperature days evolve over time. The lower blue bars represent the number of ice days, which are days with a maximum temperature of 0°C or below. The upper red bars represent hot days with maximum temperatures above 30°C.
             </p>
             <p>
-                Die Farbintensität verdeutlicht, wie extrem das jeweilige Jahr im Vergleich zur Referenzperiode (1961–1990) war. Intensivere Farben deuten auf stärkere Abweichungen hin, wobei die Farbskala von dunkelblau (sehr wenig Eistage) über hell (normal) bis dunkelrot (sehr viele Hitzetage) reicht.
+                Color intensity indicates how extreme each year was relative to the reference period (1961–1990). Stronger colors indicate larger deviations, with the scale ranging from dark blue (very few ice days) through light (normal) to dark red (many hot days).
             </p>
             <p style={{ fontSize: '0.9em', opacity: 0.8 }}>
-                <em>Die Farbsättigung basiert auf dem 5. bis 95. Perzentil der Referenzperiode, um extreme Jahre deutlich hervorzuheben.</em>
+                <em>Color saturation is based on the 5th to 95th percentile of the reference period to emphasize extreme years.</em>
             </p>
         </PlotDescription>
     );

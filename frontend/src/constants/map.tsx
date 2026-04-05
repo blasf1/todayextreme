@@ -1,15 +1,6 @@
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
+
 // Predefined list of important cities to always show on the map
-// Top 10 cities in Germany by population plus Dillingen an der Donau 
-export const PREDEFINED_CITIES = [
-    "Berlin",
-    "Hamburg",
-    "München",
-    "Köln",
-    "Frankfurt am Main",
-    "Düsseldorf",
-    "Stuttgart",
-    "Leipzig",
-    "Dortmund",
-    "Bremen",
-    "Dillingen an der Donau",
-];
+export const PREDEFINED_CITIES = [...ACTIVE_COUNTRY_PROFILE.predefinedCities];
+
+export const DEFAULT_CITY = ACTIVE_COUNTRY_PROFILE.defaultCityQuery;

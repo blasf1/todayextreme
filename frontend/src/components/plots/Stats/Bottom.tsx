@@ -16,7 +16,7 @@ const containerStyle: CSSProperties = {
     boxSizing: 'border-box',
 };
 
-const USDA_INFO_TEXT = 'Die USDA-Winterhärtezone hilft Gärtnern bei der Auswahl geeigneter Pflanzen basierend auf den lokalen Tiefsttemperaturen. Sie basiert auf dem Durchschnitt der jährlichen Tiefsttemperaturen der letzten 30 Jahre.';
+const USDA_INFO_TEXT = 'The USDA hardiness zone helps gardeners choose suitable plants based on local minimum temperatures. It is based on the average annual minimum temperatures over the last 30 years.';
 
 const StatsBottom = memo(() => {
     const breakpoint = useBreakpoint();
@@ -37,18 +37,18 @@ const StatsBottom = memo(() => {
     }
 
     // Build subtitle with actual calculated AAEMT
-    let subtitle = `Berechnet aus den Daten von ${yearRangeText}`;
+    let subtitle = `Calculated from data in ${yearRangeText}`;
     if (aaemt !== null && !isLoading && !error) {
-        subtitle = `Ø jährl. Tiefsttemperatur: ${aaemt.toFixed(1)}°C`;
+        subtitle = `Avg. annual extreme minimum: ${aaemt.toFixed(1)}°C`;
     }
 
     return (
         <div style={containerStyle}>
             <StatCard
-                title="USDA-Winterhärtezone"
+                title="USDA Hardiness Zone"
                 value={displayValue}
                 subtitle={subtitle}
-                footnote={`Basierend auf Wetterstationsdaten ${yearRangeText}`}
+                footnote={`Based on weather station data ${yearRangeText}`}
                 infoText={USDA_INFO_TEXT}
                 isLoading={isLoading}
                 error={error}

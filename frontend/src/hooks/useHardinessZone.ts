@@ -38,7 +38,7 @@ export function useHardinessZone(): HardinessZoneState {
     const error = useMemo(() => {
         if (errorFromSlice) return errorFromSlice;
         if (status === 'succeeded' && zoneDetails?.zone === null) {
-            return 'Nicht genügend Daten für die Berechnung der Winterhärtezone verfügbar.';
+            return 'Not enough data available to calculate the hardiness zone.';
         }
         return null;
     }, [errorFromSlice, status, zoneDetails]);

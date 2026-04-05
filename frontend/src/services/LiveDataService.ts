@@ -3,6 +3,7 @@ import StationData from "../classes/StationData";
 import { fetchAndParseCSV, parseOptionalFloat, replaceInvalidWithUndefined } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
 import { getNow } from "../utils/dateUtils";
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
 
 export interface LiveStationRecord {
     station: Station;
@@ -32,49 +33,70 @@ export interface LiveDataResponse {
  * @returns {Promise<Array>} Array of station data objects
  */
 export const fetchLiveData = async (): Promise<LiveDataResponse> => {
-    const today = getNow();
-    const yearMonthDay = today.toFormat('yyyyLLdd');
+    const parseLiveRows = (rows: string[][]): LiveDataResponse => {
+        const stations: Record<string, Station> = {};
+        const stationData: Record<string, StationData> = {};
 
-    return fetchAndParseCSV<LiveDataResponse>(
-        buildUrl(`/station_data/10min_station_data_${yearMonthDay}.csv`, true, 'yyyyLLddHH'),
-        (rows) => {
-            const stations: Record<string, Station> = {};
-            const stationData: Record<string, StationData> = {};
+        for (const [stationId, stationName, date, elevationRaw, latRaw, lonRaw, humidityRaw, maxTemperatureRaw, minTemperatureRaw, temperatureRaw] of rows) {
+            if (!stationId || !stationName || !date) continue;
 
-            for (const [stationId, stationName, date, elevationRaw, latRaw, lonRaw, humidityRaw, maxTemperatureRaw, minTemperatureRaw, temperatureRaw] of rows) {
-                if (!stationId || !stationName || !date) continue;
+            const elevation = parseOptionalFloat(elevationRaw);
+            const lat = parseOptionalFloat(latRaw);
+            const lon = parseOptionalFloat(lonRaw);
 
-                const elevation = parseOptionalFloat(elevationRaw);
-                const lat = parseOptionalFloat(latRaw);
-                const lon = parseOptionalFloat(lonRaw);
+            if (elevation === undefined || lat === undefined || lon === undefined) continue;
 
-                if (elevation === undefined || lat === undefined || lon === undefined) continue;
+            const cleanedStationName = stationName.replace(/^"|"$/g, '');
 
-                const cleanedStationName = stationName.replace(/^"|"$/g, '');
+            stations[stationId] = new Station(
+                stationId,
+                cleanedStationName,
+                elevation,
+                lat,
+                lon
+            );
 
-                stations[stationId] = new Station(
-                    stationId,
-                    cleanedStationName,
-                    elevation,
-                    lat,
-                    lon
-                );
-
-                stationData[stationId] = new StationData(
-                    stationId,
-                    date,
-                    replaceInvalidWithUndefined(parseOptionalFloat(temperatureRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(minTemperatureRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(maxTemperatureRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(humidityRaw))
-                );
-            }
-
-            return { stations, stationData };
-        },
-        {
-            validateHeaders: ['station_id', 'station_name', 'data_date', 'elevation', 'lat', 'lon', 'humidity', 'max_temperature', 'min_temperature', 'temperature'],
-            errorContext: 'live station data'
+            stationData[stationId] = new StationData(
+                stationId,
+                date,
+                replaceInvalidWithUndefined(parseOptionalFloat(temperatureRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(minTemperatureRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(maxTemperatureRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(humidityRaw))
+            );
         }
-    );
+
+        return { stations, stationData };
+    };
+
+    const baseDate = getNow();
+    const lookbackDays = 3;
+    let lastError: unknown = null;
+
+    for (let offset = 0; offset <= lookbackDays; offset += 1) {
+        const candidateDate = baseDate.minus({ days: offset });
+        const yearMonthDay = candidateDate.toFormat('yyyyLLdd');
+        const dataPath = `${ACTIVE_COUNTRY_PROFILE.dataRoot}/station_data/10min_station_data_${yearMonthDay}.csv`;
+
+        try {
+            return await fetchAndParseCSV<LiveDataResponse>(
+                buildUrl(dataPath, true, 'yyyyLLddHH'),
+                parseLiveRows,
+                {
+                    validateHeaders: ['station_id', 'station_name', 'data_date', 'elevation', 'lat', 'lon', 'humidity', 'max_temperature', 'min_temperature', 'temperature'],
+                    errorContext: `live station data (${yearMonthDay})`
+                }
+            );
+        } catch (error) {
+            lastError = error;
+            const message = error instanceof Error ? error.message : '';
+            const isNotFound = message.includes('404');
+            const hasMissingHeaders = message.includes('Missing required headers');
+            if (!isNotFound && !hasMissingHeaders) {
+                throw error;
+            }
+        }
+    }
+
+    throw (lastError instanceof Error ? lastError : new Error('Failed to load live station data.'));
 };

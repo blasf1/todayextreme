@@ -1,6 +1,8 @@
 import DailyRecentByStation, { type IStationDataByStationId } from "../classes/DailyRecentByStation";
 import { fetchAndParseCSV, parseOptionalFloat, replaceInvalidWithUndefined } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
+import { getNow } from '../utils/dateUtils.js';
 
 export interface DailyRecentByDateArgs {
     year: number;
@@ -35,41 +37,68 @@ export const fetchDailyRecentByDateData = async (params: DailyRecentByDateArgs):
     const { year, month, day } = params;
     const paddedMonth = String(month).padStart(2, '0');
     const paddedDay = String(day).padStart(2, '0');
-    const dateStr = `${year}-${paddedMonth}-${paddedDay}`;
+    const requestedDateStr = `${year}-${paddedMonth}-${paddedDay}`;
+    const todayDateStr = getNow().toFormat('yyyy-MM-dd');
+    const isTodayRequest = requestedDateStr === todayDateStr;
 
-    return fetchAndParseCSV<IStationDataByStationId>(
-        buildUrl(`/data/daily_recent_by_date/${dateStr}.csv`, true, 'yyyyLLddHH'),
-        (rows) => {
-            const result: IStationDataByStationId = {};
+    const parseDailyRowsForDate = (rows: string[][], expectedDate: string): IStationDataByStationId => {
+        const result: IStationDataByStationId = {};
 
-            for (const [stationIdRaw, dateRaw, temperatureMaxRaw, temperatureMinRaw, temperatureMeanRaw, humidityMeanRaw] of rows) {
-                if (!stationIdRaw || !dateRaw) continue;
+        for (const [stationIdRaw, dateRaw, temperatureMaxRaw, temperatureMinRaw, temperatureMeanRaw, humidityMeanRaw] of rows) {
+            if (!stationIdRaw || !dateRaw) continue;
 
-                if (dateRaw !== dateStr) {
-                    throw new Error(`Data for date ${dateStr} not found in the response.`);
-                }
-
-                const record = new DailyRecentByStation(
-                    stationIdRaw,
-                    dateRaw,
-                    replaceInvalidWithUndefined(parseOptionalFloat(temperatureMeanRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(temperatureMinRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(temperatureMaxRaw)),
-                    replaceInvalidWithUndefined(parseOptionalFloat(humidityMeanRaw))
-                );
-
-                result[record.stationId] = record.toJSON();
+            if (dateRaw !== expectedDate) {
+                throw new Error(`Data for date ${expectedDate} not found in the response.`);
             }
 
-            if (Object.keys(result).length === 0) {
-                throw new Error(`No historical data found for date ${dateStr}.`);
-            }
+            const record = new DailyRecentByStation(
+                stationIdRaw,
+                dateRaw,
+                replaceInvalidWithUndefined(parseOptionalFloat(temperatureMeanRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(temperatureMinRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(temperatureMaxRaw)),
+                replaceInvalidWithUndefined(parseOptionalFloat(humidityMeanRaw))
+            );
 
-            return result;
-        },
-        {
-            validateHeaders: ['station_id', 'date', 'max_temperature', 'min_temperature', 'mean_temperature', 'mean_humidity'],
-            errorContext: `daily recent data for ${dateStr}`
+            result[record.stationId] = record.toJSON();
         }
-    );
+
+        if (Object.keys(result).length === 0) {
+            throw new Error(`No historical data found for date ${expectedDate}.`);
+        }
+
+        return result;
+    };
+
+    const candidates = [requestedDateStr];
+    if (isTodayRequest) {
+        for (let i = 1; i <= 3; i += 1) {
+            candidates.push(getNow().minus({ days: i }).toFormat('yyyy-MM-dd'));
+        }
+    }
+
+    let lastError: unknown = null;
+
+    for (const dateStr of candidates) {
+        try {
+            return await fetchAndParseCSV<IStationDataByStationId>(
+                buildUrl(`${ACTIVE_COUNTRY_PROFILE.dataRoot}/daily_recent_by_date/${dateStr}.csv`, true, 'yyyyLLddHH'),
+                (rows) => parseDailyRowsForDate(rows, dateStr),
+                {
+                    validateHeaders: ['station_id', 'date', 'max_temperature', 'min_temperature', 'mean_temperature', 'mean_humidity'],
+                    errorContext: `daily recent data for ${dateStr}`
+                }
+            );
+        } catch (error) {
+            lastError = error;
+            const message = error instanceof Error ? error.message : '';
+            const isNotFound = message.includes('404');
+            const hasMissingHeaders = message.includes('Missing required headers');
+            if (!isTodayRequest || (!isNotFound && !hasMissingHeaders)) {
+                throw error;
+            }
+        }
+    }
+
+    throw (lastError instanceof Error ? lastError : new Error(`Failed to load daily recent data for ${requestedDateStr}.`));
 };

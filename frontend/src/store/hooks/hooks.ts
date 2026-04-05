@@ -22,6 +22,7 @@ import {
 } from '../slices/rollingAverageDataSlice.js';
 import { getNow } from '../../utils/dateUtils.js';
 import type { DateKey } from '../slices/DailyRecentByDateSlice.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../../config/countryProfiles.js';
 
 /**
  * Convenience hooks that wrap the granular selectors.
@@ -63,9 +64,11 @@ export const useHeatmapDataStatus = () => {
 
         const geoLoading = geoJSONStatus === 'idle' || geoJSONStatus === 'loading';
 
+        const isSpainMode = ACTIVE_COUNTRY_PROFILE.id === 'spain';
+
         const yearlyStatus = yearlyMeanSlice.status;
         const yearlyError = yearlyMeanSlice.error;
-        const yearlyLoading = !isToday && (yearlyStatus === 'idle' || yearlyStatus === 'loading');
+        const yearlyLoading = !isSpainMode && !isToday && (yearlyStatus === 'idle' || yearlyStatus === 'loading');
 
         const dailyStatus = dailyRecentSlice.status;
         const dailyError = dailyRecentSlice.error;
@@ -76,7 +79,7 @@ export const useHeatmapDataStatus = () => {
         const loadingKeySet = new Set<DateKey>(dailyRecentSlice.loadingKeys ?? []);
         const dailyKeyLoading = dateKey ? loadingKeySet.has(dateKey) : false;
         const hasDailyData = dateKey ? Boolean(dailyData[dateKey]) : false;
-        const dailyLoading = !isToday && (
+        const dailyLoading = !isSpainMode && !isToday && (
             dailyKeyLoading ||
             dailyStatus === 'loading' ||
             (dailyStatus === 'idle' && !hasDailyData)
@@ -91,7 +94,7 @@ export const useHeatmapDataStatus = () => {
             referenceContext.month === dateTime.month &&
             referenceContext.day === dateTime.day
         );
-        const referenceLoading = isToday && (
+        const referenceLoading = !isSpainMode && isToday && (
             !referenceMatchesContext ||
             referenceStatus === 'idle' ||
             referenceStatus === 'loading'
@@ -100,7 +103,9 @@ export const useHeatmapDataStatus = () => {
         const isLoading = geoLoading || yearlyLoading || dailyLoading || referenceLoading;
 
         const error = geoJSONError
-            || (!isToday ? (dailyError || yearlyError) : (referenceError || yearlyError));
+            || (isSpainMode
+                ? null
+                : (!isToday ? (dailyError || yearlyError) : (referenceError || yearlyError)));
 
         return {
             isLoading,

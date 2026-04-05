@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { theme, createStyles } from '../../../styles/design-system.js';
 import { useBreakpointDown } from '../../../hooks/useBreakpoint.js';
 import { useAppSelector } from '../../../store/hooks/useAppSelector.js';
+import { useAppDispatch } from '../../../store/hooks/useAppDispatch.js';
+import { selectCity } from '../../../store/slices/selectedCitySlice.js';
 import { useStationDetailsData } from './useStationDetailsData.js';
 import type { StationDetailsData } from './useStationDetailsData.js';
-import { useHeatmapRenderComplete } from '../../../store/slices/heatmapGermanySlice.js';
 
 const getPanelStyle = (isVertical: boolean): CSSProperties => ({
     display: 'flex',
@@ -61,6 +62,71 @@ const placeholderStyle: CSSProperties = {
 };
 
 const styles = createStyles({
+    questionRow: {
+        marginBottom: 14,
+        textAlign: 'center',
+    },
+    questionText: {
+        fontSize: '2.1rem',
+        fontWeight: 700,
+        lineHeight: 1.15,
+        marginBottom: 6,
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        columnGap: 0,
+        rowGap: 0,
+    },
+    questionLead: {
+        marginRight: 6,
+    },
+    citySelectInlineTrigger: {
+        position: 'relative' as const,
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        textDecoration: 'underline',
+        textDecorationColor: 'rgba(211,47,47,0.45)',
+        cursor: 'pointer',
+    },
+    citySelectInlineLabel: {
+        color: '#d32f2f',
+    },
+    citySelectInlineArrow: {
+        marginLeft: 2,
+        color: '#d32f2f',
+        fontSize: '0.9rem',
+        pointerEvents: 'none' as const,
+    },
+    citySelectNative: {
+        position: 'absolute' as const,
+        inset: 0,
+        appearance: 'none' as any,
+        WebkitAppearance: 'none' as any,
+        MozAppearance: 'none' as any,
+        border: 'none',
+        background: 'transparent',
+        color: 'transparent',
+        opacity: 0,
+        cursor: 'pointer',
+        width: '100%',
+        height: '100%',
+    },
+    questionMark: {
+        marginLeft: -1,
+    },
+    answerMain: {
+        marginTop: 8,
+        fontSize: '3rem',
+        fontWeight: 700,
+        lineHeight: 1,
+    },
+    answerSub: {
+        marginTop: 8,
+        fontSize: '1.4rem',
+        fontWeight: 600,
+        color: '#d7d7d7',
+    },
     placeholder: {
         fontSize: '1rem',
         textAlign: 'center',
@@ -121,25 +187,15 @@ const styles = createStyles({
  * Panel component to display city information with nearest weather station data
  */
 const StationDetails = () => {
+    const dispatch = useAppDispatch();
     const selectedCityId = useAppSelector((state) => state.selectedCity.cityId);
+    const cities = useAppSelector((state) => state.cityData.data);
     const isVertical = useBreakpointDown('desktop');
-    const isHeatmapReady = useHeatmapRenderComplete();
 
     // Get all computed data synchronously from custom hook
     const computedData = useStationDetailsData();
 
-    // State for displayed data (used to delay updates on initial mount only)
-    const [displayData, setDisplayData] = useState<StationDetailsData | null>(null);
-
-    // Handle initial mount delay and subsequent immediate updates
-    useEffect(() => {
-        // If no data is ready, don't update (wait for all data to be available)
-        if (!computedData.item || !computedData.subtitle || !computedData.anomalyDetails || !isHeatmapReady) {
-            return;
-        }
-
-        setDisplayData(computedData);
-    }, [computedData, isHeatmapReady]);
+    // Removed displayData state and effect for immediate updates
 
     // Memoized computed styles
     const panelStyle = useMemo(() => getPanelStyle(isVertical), [isVertical]);
@@ -148,12 +204,38 @@ const StationDetails = () => {
     const subtitleStyle = useMemo(() => getSubtitleStyle(isVertical), [isVertical]);
     const comparisonStyle = useMemo(() => getComparisonStyle(isVertical), [isVertical]);
 
+    const sortedCities = useMemo(() => {
+        if (!cities) return [] as Array<{ id: string; name: string }>;
+        return Object.values(cities)
+            .map((city) => ({ id: city.id, name: city.name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [cities]);
+
+    const selectedCityName = useMemo(() => {
+        if (!selectedCityId) return '';
+        return sortedCities.find((city) => city.id === selectedCityId)?.name ?? '';
+    }, [sortedCities, selectedCityId]);
+
+    const answer = useMemo(() => {
+        const anomaly = computedData.anomaly;
+        if (anomaly === null || anomaly === undefined) {
+            return null;
+        }
+        if (anomaly >= 1.5) {
+            return { main: 'Yes', sub: 'It is quite warm' };
+        }
+        if (anomaly <= -1.5) {
+            return { main: 'No', sub: 'It is not especially warm' };
+        }
+        return { main: 'Mixed', sub: 'Close to normal for this date' };
+    }, [computedData.anomaly]);
+
     // If no city is selected, show a placeholder
     if (!selectedCityId) {
         return (
             <div style={panelStyle}>
                 <div style={styles.placeholder}>
-                    Klicke auf eine Stadt oder nutze die Suchfunktion um Details anzuzeigen
+                    Click a city or use search to display details
                 </div>
             </div>
         );
@@ -161,26 +243,56 @@ const StationDetails = () => {
 
     return (
         <div style={panelStyle}>
-            {displayData && displayData.item && displayData.anomalyDetails && (
+            <div style={styles.questionRow}>
+                <div style={styles.questionText}>
+                    <span style={styles.questionLead}>Is it hot today in</span>
+                    <span style={styles.citySelectInlineTrigger}>
+                        <span style={styles.citySelectInlineLabel}>{selectedCityName}</span>
+                        <span style={styles.citySelectInlineArrow}>▼</span>
+                        <select
+                            aria-label="Select city"
+                            value={selectedCityId ?? ''}
+                            onChange={(event) => {
+                                if (!event.target.value) return;
+                                dispatch(selectCity(event.target.value, true));
+                            }}
+                            style={styles.citySelectNative}
+                        >
+                            {sortedCities.map((city) => (
+                                <option key={city.id} value={city.id}>
+                                    {city.name}
+                                </option>
+                            ))}
+                        </select>
+                    </span>
+                    <span style={styles.questionMark}>?</span>
+                </div>
+                {answer && <div style={styles.answerMain}>{answer.main}</div>}
+                {answer && <div style={styles.answerSub}>{answer.sub}</div>}
+            </div>
+
+            {computedData.item && (
                 <>
-                    <h2 style={nameStyle}>{displayData.item.city.name}</h2>
-                    <div style={subtitleStyle} dangerouslySetInnerHTML={{ __html: displayData.subtitle }} />
+                    <h2 style={nameStyle}>{computedData.item.city.name}</h2>
+                    {computedData.subtitle.trim().length > 0 && (
+                        <div style={subtitleStyle} dangerouslySetInnerHTML={{ __html: computedData.subtitle }} />
+                    )}
                     <div style={metricsStyle}>
                         <div style={styles.doubleCell}>
                             <div style={{ ...styles.metricCell, ...styles.metricCellHighlight }}>
-                                <span style={styles.metricLabel}>{displayData.isToday ? "Zuletzt" : "Mittel"}</span>
+                                <span style={styles.metricLabel}>{computedData.isToday ? "Latest" : "Mean"}</span>
                                 <span style={{ ...styles.metricValue, ...styles.metricValueHighlight }}>
-                                    {displayData.item.data.temperature !== undefined
-                                        ? `${displayData.item.data.temperature.toFixed(1)}°C`
-                                        : "k. A."}
+                                    {computedData.item.data.temperature !== undefined
+                                        ? `${computedData.item.data.temperature.toFixed(1)}°C`
+                                        : "N/A"}
                                 </span>
                             </div>
                             <div style={styles.metricCell}>
                                 <span style={styles.metricLabel}>Min</span>
                                 <span style={styles.metricValue}>
-                                    {displayData.item.data.minTemperature !== undefined
-                                        ? `${displayData.item.data.minTemperature.toFixed(1)}°C`
-                                        : "k. A."}
+                                    {computedData.item.data.minTemperature !== undefined
+                                        ? `${computedData.item.data.minTemperature.toFixed(1)}°C`
+                                        : "N/A"}
                                 </span>
                             </div>
                         </div>
@@ -188,42 +300,48 @@ const StationDetails = () => {
                             <div style={styles.metricCell}>
                                 <span style={styles.metricLabel}>Max</span>
                                 <span style={styles.metricValue}>
-                                    {displayData.item.data.maxTemperature !== undefined
-                                        ? `${displayData.item.data.maxTemperature.toFixed(1)}°C`
-                                        : "k. A."}
+                                    {computedData.item.data.maxTemperature !== undefined
+                                        ? `${computedData.item.data.maxTemperature.toFixed(1)}°C`
+                                        : "N/A"}
                                 </span>
                             </div>
                             <div style={styles.metricCell}>
-                                <span style={styles.metricLabel}>Luft</span>
+                                <span style={styles.metricLabel}>Humidity</span>
                                 <span style={styles.metricValue}>
-                                    {displayData.item.data.humidity !== undefined
-                                        ? `${displayData.item.data.humidity.toFixed(0)}%`
-                                        : "k. A."}
+                                    {computedData.item.data.humidity !== undefined
+                                        ? `${computedData.item.data.humidity.toFixed(0)}%`
+                                        : "N/A"}
                                 </span>
                             </div>
                         </div>
                     </div>
                     <div style={comparisonStyle}>
-                        <div style={styles.comparisonMessage}>
-                            {displayData.anomalyDetails.comparisonMessage}
-                        </div>
-                        <span style={styles.anomaly}>
-                            {displayData.anomalyDetails.anomalyMessage}
-                        </span>
+                        {computedData.anomalyDetails ? (
+                            <>
+                                <div style={styles.comparisonMessage}>
+                                    {computedData.anomalyDetails.comparisonMessage}
+                                </div>
+                                <span style={styles.anomaly}>
+                                    {computedData.anomalyDetails.anomalyMessage}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                <div style={styles.comparisonMessage}>Live data loaded</div>
+                                <span style={styles.anomaly}>Reference baseline for anomaly comparison is not available yet.</span>
+                            </>
+                        )}
                     </div>
                 </>
             )}
-            {!(displayData && displayData.item && displayData.anomalyDetails) && (
+            {!computedData.item && (
                 <>
-                    <h2 style={{ ...nameStyle, ...placeholderStyle }}>Eine Stadt</h2>
-                    <div style={{ ...subtitleStyle, ...placeholderStyle }}>
-                        Wetterstation: Eine-Wetterstation (6km) 88.88.2025 19:20 Uhr
-                    </div>
+                    <h2 style={{ ...nameStyle, ...placeholderStyle }}>A City</h2>
 
                     <div style={metricsStyle}>
                         <div style={styles.doubleCell}>
                             <div style={{ ...styles.metricCell, ...styles.metricCellHighlight }}>
-                                <span style={styles.metricLabel}>{computedData.isToday ? "Zuletzt" : "Mittel"}</span>
+                                <span style={styles.metricLabel}>{computedData.isToday ? "Latest" : "Mean"}</span>
                                 <span style={{ ...styles.metricValue, ...placeholderStyle }}>
                                     20.5°C
                                 </span>
@@ -243,7 +361,7 @@ const StationDetails = () => {
                                 </span>
                             </div>
                             <div style={styles.metricCell}>
-                                <span style={styles.metricLabel}>Luft</span>
+                                <span style={styles.metricLabel}>Humidity</span>
                                 <span style={{ ...styles.metricValue, ...placeholderStyle }}>
                                     64%
                                 </span>
@@ -253,10 +371,10 @@ const StationDetails = () => {
 
                     <div style={comparisonStyle}>
                         <div style={{ ...styles.comparisonMessage, ...placeholderStyle }}>
-                            Absolut keine Ahnung
+                            No data yet
                         </div>
                         <div style={{ ...styles.anomaly, ...placeholderStyle }}>
-                            Die maximale Temperatur liegt 3.1&nbsp;°C unter dem historischen&nbsp;Mittelwert.
+                            The maximum temperature is 3.1&nbsp;°C below the historical&nbsp;mean.
                         </div>
                     </div>
                 </>

@@ -51,7 +51,7 @@ const styles = createStyles({
     staticPlot: {
         width: '100%',
         height: '100%',
-        filter: 'drop-shadow(0 0 20px rgba(0, 0,0 ,1))',
+        filter: 'none',
     },
     dynamicPlot: {
         position: 'absolute' as const,
@@ -65,11 +65,50 @@ const styles = createStyles({
         dy: 8
     },
     plotStyle: {
-        stroke: '#000',
-        strokeWidth: 1,
+        stroke: 'none',
+        strokeWidth: 0,
         fill: 'white'
     }
 });
+
+const buildBorderlessDomain = (featureCollection: any): any => {
+    if (!featureCollection?.features || !Array.isArray(featureCollection.features)) {
+        return featureCollection;
+    }
+
+    const polygons: any[] = [];
+    for (const feature of featureCollection.features) {
+        const geometry = feature?.geometry;
+        if (!geometry) continue;
+
+        if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+            polygons.push(geometry.coordinates);
+            continue;
+        }
+
+        if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates)) {
+            polygons.push(...geometry.coordinates);
+        }
+    }
+
+    if (polygons.length === 0) {
+        return featureCollection;
+    }
+
+    return {
+        type: 'FeatureCollection',
+        features: [
+            {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'MultiPolygon',
+                    coordinates: polygons,
+                },
+            },
+        ],
+    };
+};
 
 const HeatmapGermanyRightSide = memo(() => {
     const dispatch = useAppDispatch();
@@ -89,6 +128,7 @@ const HeatmapGermanyRightSide = memo(() => {
     const selectedDate = useSelectedDate();
     const cityLabelData = useCityLabelPlotData();
     const geojson = useGeoJSON();
+    const borderlessGeojson = useMemo(() => buildBorderlessDomain(geojson), [geojson]);
     const geojsonStatus = useGeoJSONStatus();
     const renderComplete = useHeatmapRenderComplete();
 
@@ -115,26 +155,12 @@ const HeatmapGermanyRightSide = memo(() => {
     const idleIdRef = useRef<number | null>(null);
 
     useEffect(() => {
-        const hasGeoJSON = !!geojson;
+        const hasGeoJSON = !!borderlessGeojson;
         const hasSampledData = Array.isArray(sampledPlotData) && sampledPlotData.length > 0;
         const hasAnomalyData = hasSampledData && sampledPlotData.some(d => typeof d.anomaly === 'number');
 
-        // Skip if we have neither geojson nor sampled data.
-        if (!hasGeoJSON && !hasSampledData) return;
-
-        // Skip if we have real data, but no geojson. Cannot build plot yet.
-        // This happens when data loads before geojson.
-        if (!hasGeoJSON && hasSampledData) return;
-
-        // Wait for anomaly data before rebuilding the heatmap after the initial outline.
-        if (hasGeoJSON && hasSampledData && !hasAnomalyData) return;
-
-        // Skip if we have geojson but no sampled data and it's not the initial mount.
-        if (hasGeoJSON && !hasSampledData && !isInitialMount.current) return;
-
-        // We will only reach this point if:
-        // 1) We have geojson but no sampled data and it's the initial mount (initial outline render)
-        // 2) We have both geojson and sampled data
+        // We cannot build any map before geojson is available.
+        if (!hasGeoJSON) return;
 
         // Cancel previous idle task if any
         if (idleIdRef.current !== null && 'cancelIdleCallback' in window) {
@@ -148,7 +174,17 @@ const HeatmapGermanyRightSide = memo(() => {
                 isOutlineOnly = true;
                 staticPlot = Plot.plot({
                     projection: { type: 'mercator', domain: geojson },
-                    marks: [Plot.geo(geojson, styles.plotStyle)],
+                    marks: [Plot.geo(borderlessGeojson, styles.plotStyle)],
+                    width: plotDims.width,
+                    height: plotDims.height,
+                });
+            } else if (hasGeoJSON && hasSampledData && !hasAnomalyData) {
+                // In local-live mode (for example Spain-only data), anomalies may be unavailable.
+                // Render the boundary immediately and let dynamic city overlays provide interactivity.
+                isOutlineOnly = true;
+                staticPlot = Plot.plot({
+                    projection: { type: 'mercator', domain: geojson },
+                    marks: [Plot.geo(borderlessGeojson, styles.plotStyle)],
                     width: plotDims.width,
                     height: plotDims.height,
                 });
@@ -158,13 +194,13 @@ const HeatmapGermanyRightSide = memo(() => {
                     color: { type: 'diverging', scheme: 'Turbo', domain: [-10, 10], pivot: 0 },
                     marks: [
                         // Use sampled data for contours to reduce computation
-                        Plot.geo(geojson, styles.plotStyle),
+                        Plot.geo(borderlessGeojson, styles.plotStyle),
                         Plot.contour(sampledPlotData, {
                             x: 'stationLon',
                             y: 'stationLat',
                             fill: 'anomaly',
                             blur: 1.5,
-                            clip: geojson,
+                            clip: borderlessGeojson,
                         }),
                     ],
                     width: plotDims.width,
@@ -185,9 +221,8 @@ const HeatmapGermanyRightSide = memo(() => {
 
             if (isOutlineOnly) {
                 showPlot();
-                if (isInitialMount.current) {
-                    setShouldAnimatePlot(true);
-                }
+                setShouldAnimatePlot(true);
+                dispatch(setDateChangeRenderComplete(true));
                 return;
             }
 
@@ -209,19 +244,16 @@ const HeatmapGermanyRightSide = memo(() => {
             }
         };
 
-
-        if (hasGeoJSON && !hasSampledData && isInitialMount.current) {
+        if (!hasSampledData || !hasAnomalyData) {
             build();
-        } else if (hasGeoJSON && hasSampledData && hasAnomalyData) {
+        } else {
             if ('requestIdleCallback' in window) {
                 idleIdRef.current = requestIdleCallback(build);
             } else {
                 idleIdRef.current = (window as any).setTimeout(build, 0);
             }
-        } else {
-            console.error('Cannot schedule heatmap static plot build: unexpected state.');
         }
-    }, [sampledPlotData, geojson, dispatch, plotDims.width, plotDims.height]);
+    }, [sampledPlotData, borderlessGeojson, dispatch, plotDims.width, plotDims.height]);
 
     useEffect(() => {
         return () => {
@@ -234,28 +266,26 @@ const HeatmapGermanyRightSide = memo(() => {
 
     // Render dynamic overlays (city dots, labels, selection) on every relevant state change
     const renderDynamicOverlay = useCallback(() => {
-        const isDataPresent = !!cityLabelData && !!geojson;
-        if (!isDataPresent || !renderComplete) return;
-
         if (dynamicPlotRef.current) {
             dynamicPlotRef.current.innerHTML = '';
         }
 
-        const { fontSize, dy } = styles.textStyle;
+        const isDataPresent = !!cityLabelData && !!borderlessGeojson;
+        if (!isDataPresent || !renderComplete) return;
 
         const dynamicPlot = Plot.plot({
             projection: {
                 type: "mercator",
-                domain: geojson
+                domain: borderlessGeojson
             },
             marks: [
                 Plot.dot(cityLabelData, {
                     x: "cityLon",
                     y: "cityLat",
-                    r: 3,
+                    r: 7,
                     fill: "currentColor",
                     stroke: "white",
-                    strokeWidth: 1.5,
+                    strokeWidth: 2,
                 }),
                 Plot.dot(cityLabelData,
                     Plot.pointer({
@@ -263,19 +293,9 @@ const HeatmapGermanyRightSide = memo(() => {
                         y: "cityLat",
                         stroke: "white",
                         strokeWidth: 3,
-                        r: 5
+                        r: 10
                     })
                 ),
-                Plot.text(cityLabelData, {
-                    x: "cityLon",
-                    y: "cityLat",
-                    text: (i) => i.cityName,
-                    fill: "currentColor",
-                    stroke: "white",
-                    lineAnchor: "top",
-                    dy,
-                    fontSize,
-                })
             ],
             width: plotDims.width,
             height: plotDims.height,
@@ -297,7 +317,7 @@ const HeatmapGermanyRightSide = memo(() => {
         dynamicPlotRef.current?.appendChild(dynamicPlot as unknown as HTMLElement);
     }, [
         cityLabelData,
-        geojson,
+        borderlessGeojson,
         dispatch,
         breakpoint,
         renderComplete,
@@ -320,9 +340,9 @@ const HeatmapGermanyRightSide = memo(() => {
     );
 
     let title = isToday
-        ? "Heutige Temperaturabweichung"
-        : "Temperaturabweichung am " + DateTime.fromISO(selectedDate).setLocale('de').toFormat("d. MMMM yyyy");
-    title += " zu\u00A01961\u00A0bis\u00A01990\u00A0in\u00A0°C";
+        ? "Today's temperature anomaly"
+        : "Temperature anomaly on " + DateTime.fromISO(selectedDate).setLocale('en').toFormat("d MMMM yyyy");
+    title += " vs\u00A01961\u00A0to\u00A01990\u00A0in\u00A0°C";
 
     return (
         <div style={plotContainerLeftAlignStyle}>

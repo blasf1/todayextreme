@@ -5,20 +5,6 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
     base: '/',
-    server: {
-        proxy: {
-            '/data': {
-                target: 'https://esistwarm.jetzt',
-                changeOrigin: true,
-                secure: false,
-            },
-            '/station_data': {
-                target: 'https://esistwarm.jetzt',
-                changeOrigin: true,
-                secure: false,
-            }
-        }
-    },
     plugins: [
         react(),
         nodePolyfills({

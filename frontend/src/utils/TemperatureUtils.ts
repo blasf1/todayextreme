@@ -139,46 +139,46 @@ export const analyzeTemperatureAnomaly = (
 ): TemperatureAnomalyDetails => {
     if (anomaly === undefined || anomaly === null) {
         return {
-            comparisonMessage: 'Keine Ahnung.',
-            anomalyMessage: 'Keine historischen Daten verfügbar.',
+            comparisonMessage: 'Not enough information.',
+            anomalyMessage: 'No historical data available.',
         };
     }
 
-    const verbSein = isLiveData ? 'ist' : 'war';
+    const tenseVerb = isLiveData ? 'is' : 'was';
     let comparisonMessage: string;
 
     if (anomaly <= -10) {
-        comparisonMessage = `Es ${verbSein} eiskalt!`;
+        comparisonMessage = `It ${tenseVerb} freezing!`;
     } else if (anomaly <= -8) {
-        comparisonMessage = `Es ${verbSein} sehr kalt!`;
+        comparisonMessage = `It ${tenseVerb} very cold!`;
     } else if (anomaly <= -6) {
-        comparisonMessage = `Es ${verbSein} kalt!`;
+        comparisonMessage = `It ${tenseVerb} cold!`;
     } else if (anomaly <= -4) {
-        comparisonMessage = `Es ${verbSein} sehr kühl!`;
+        comparisonMessage = `It ${tenseVerb} quite chilly!`;
     } else if (anomaly <= -2) {
-        comparisonMessage = `Es ${verbSein} kühl`;
+        comparisonMessage = `It ${tenseVerb} cool`;
     } else if (anomaly === 0) {
-        comparisonMessage = `Es ${verbSein} exakt durchschnittlich`;
+        comparisonMessage = `It ${tenseVerb} exactly average`;
     } else if (anomaly < 2) {
-        comparisonMessage = `Es ${verbSein} ziemlich normal`;
+        comparisonMessage = `It ${tenseVerb} fairly normal`;
     } else if (anomaly < 4) {
-        comparisonMessage = `Es ${verbSein} warm`;
+        comparisonMessage = `It ${tenseVerb} warm`;
     } else if (anomaly < 6) {
-        comparisonMessage = `Es ${verbSein} sehr warm!`;
+        comparisonMessage = `It ${tenseVerb} very warm!`;
     } else if (anomaly < 8) {
-        comparisonMessage = `Es ${verbSein} heiß!`;
+        comparisonMessage = `It ${tenseVerb} hot!`;
     } else if (anomaly < 10) {
-        comparisonMessage = `Es ${verbSein} sehr heiß!`;
+        comparisonMessage = `It ${tenseVerb} very hot!`;
     } else {
-        comparisonMessage = `Es ${verbSein} brütend heiß!`;
+        comparisonMessage = `It ${tenseVerb} scorching hot!`;
     }
 
     const anomalyMagnitude = Math.abs(anomaly).toFixed(1);
-    const direction = anomaly > 0 ? 'über' : 'unter';
+    const direction = anomaly > 0 ? 'above' : 'below';
 
     const anomalyMessage = isLiveData
-        ? `Die zuletzt gemessene Temperatur lag ${anomalyMagnitude}\u00A0°C ${direction} dem stündlichen historischen Mittelwert.`
-        : `Die maximal gemessene Temperatur lag ${anomalyMagnitude}\u00A0°C ${direction} dem maximalen historischen Mittelwert.`;
+        ? `The most recent measured temperature was ${anomalyMagnitude}\u00A0°C ${direction} the historical hourly mean.`
+        : `The maximum measured temperature was ${anomalyMagnitude}\u00A0°C ${direction} the historical maximum mean.`;
 
     return {
         comparisonMessage,

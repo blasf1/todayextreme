@@ -54,7 +54,7 @@ const HistoricalAnalysis = () => {
     // Left side content with tabs for different content types
     const rightContent = (
         <div style={styles.partnerSites}>
-            <h3 style={partnerSitesH3Style}>Ähnliche Projekte</h3>
+            <h3 style={partnerSitesH3Style}>Related Projects</h3>
             <div style={styles.flagLinks}>
                 <FlagLink
                     url="https://isithotrightnow.com"
@@ -97,11 +97,11 @@ const HistoricalAnalysis = () => {
         <div style={thanksStyle}>
             <div className="credits">
                 <p>
-                    Entwickelt von <Link href="https://www.linkedin.com/in/sebastianfast/">Sebastian Fast</Link><br />
-                    Inspiriert durch <Link href="https://isithotrightnow.com">isithotrightnow.com</Link><br />
+                    Developed by <Link href="https://www.linkedin.com/in/sebastianfast/">Sebastian Fast</Link><br />
+                    Inspired by <Link href="https://isithotrightnow.com">isithotrightnow.com</Link><br />
                 </p>
                 <p>
-                    Herzlichen Dank für die Inspiration und wertvollen&nbsp;Beiträge&nbsp;an<br />
+                    Special thanks for the inspiration and valuable contributions to<br />
                     <Link href="https://www.theurbanist.com.au/about/">Mat Lipson</Link>, {' '}
                     <Link href="https://jamesgoldie.dev/">James Goldie</Link> und {' '}
                     <Link href="https://scp.geographie.rub.de/isithot/lmss">Jonas Kittner</Link>
@@ -110,9 +110,9 @@ const HistoricalAnalysis = () => {
 
             <div className="participate">
                 <p>
-                    <strong>Mach mit bei diesem Projekt!</strong><br />
-                    Ideen, Vorschläge oder Feedback?<br />
-                    Besuche das <Link href="https://github.com/tsafs/itishotnow">GitHub Repo</Link> oder <Link href="mailto:kontakt@esistwarm.jetzt">schreib mir</Link>
+                    <strong>Join this project!</strong><br />
+                    Ideas, suggestions, or feedback?<br />
+                    Visit the <Link href="https://github.com/tsafs/itishotnow">GitHub repo</Link> or <Link href="mailto:kontakt@esistwarm.jetzt">send me a message</Link>
                 </p>
             </div>
         </div>

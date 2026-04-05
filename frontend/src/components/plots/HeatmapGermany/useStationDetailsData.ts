@@ -45,15 +45,7 @@ export const useStationDetailsData = (): StationDetailsData => {
         const now = getNow();
         const isToday = luxonDate.hasSame(now, 'day');
 
-        // Calculate subtitle
-        const distance = selectedItem.city.distanceToStation;
-        const formattedDistance = distance != null ? `(${Math.round(distance)}km)` : '';
-
         let subtitle = '';
-        if (selectedItem.station.name) {
-            const distanceLabel = formattedDistance ? ` ${formattedDistance}` : '';
-            subtitle = `Wetterstation: <span class="nowrap">${selectedItem.station.name}${distanceLabel}</span>`;
-        }
         if (selectedItem.data.date) {
             let date;
             if (isToday) {
@@ -63,7 +55,7 @@ export const useStationDetailsData = (): StationDetailsData => {
             }
 
             if (date && date.isValid) {
-                const localizedDate = date.setLocale('de');
+                const localizedDate = date.setLocale('en');
                 if (isToday) {
                     const formattedDateTime = localizedDate.toLocaleString({
                         ...DateTime.DATE_FULL,
@@ -71,10 +63,10 @@ export const useStationDetailsData = (): StationDetailsData => {
                         minute: '2-digit',
                         hour12: false
                     });
-                    subtitle += ` <span class="nowrap">${replaceSpacesWithNbsp(formattedDateTime)}&nbsp;Uhr</span>`;
+                    subtitle = `<span class="nowrap">${replaceSpacesWithNbsp(formattedDateTime)}</span>`;
                 } else {
                     const formattedDate = localizedDate.toLocaleString(DateTime.DATE_FULL);
-                    subtitle += ` <span class="nowrap">${replaceSpacesWithNbsp(formattedDate)}</span>`;
+                    subtitle = `<span class="nowrap">${replaceSpacesWithNbsp(formattedDate)}</span>`;
                 }
             }
         }

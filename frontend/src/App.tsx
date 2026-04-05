@@ -4,10 +4,11 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import Header from './components/header/Header';
 import Footer from './components/footer/Footer';
-import { PREDEFINED_CITIES } from './constants/map';
+import { DEFAULT_CITY, PREDEFINED_CITIES } from './constants/map';
 import { fetchYearlyMeanByDay } from './store/slices/YearlyMeanByDaySlice';
 import { fetchReferenceYearlyHourlyInterpolatedByDay } from './store/slices/ReferenceYearlyHourlyInterpolatedByDaySlice';
 import { fetchLiveData, selectLiveDataStatus, selectStationsJSON } from './store/slices/liveDataSlice';
+import { fetchDailyRecentByDate } from './store/slices/DailyRecentByDateSlice';
 import { fetchCityData, selectCities, selectCityDataStatus } from './store/slices/cityDataSlice';
 import { selectCity } from './store/slices/selectedCitySlice';
 import { fetchDailyDataForStation } from './store/slices/historicalDataForStationSlice';
@@ -19,13 +20,12 @@ import { useAppDispatch } from './store/hooks/useAppDispatch';
 import theme, { createStyles } from './styles/design-system';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import type { CSSProperties } from 'react';
+import { ACTIVE_COUNTRY_PROFILE } from './config/countryProfiles.js';
 
 // Plot registry-based lazy loading
 import { plots } from './components/plots/registry';
 const ImpressumPage = React.lazy(() => import('./pages/ImpressumPage'));
 const Closing = React.lazy(() => import('./components/closing/Closing'));
-
-const DEFAULT_CITY = "berlin"; // Default city to select
 
 // Pure style computation functions
 const getAppContainerStyle = (): CSSProperties => ({
@@ -64,6 +64,16 @@ const styles = createStyles({
         color: '#d32f2f',
         fontWeight: 500,
     },
+    warningBanner: {
+        margin: '8px 16px 0 16px',
+        padding: '10px 12px',
+        borderRadius: 6,
+        backgroundColor: 'rgba(211, 47, 47, 0.1)',
+        border: '1px solid rgba(211, 47, 47, 0.35)',
+        color: '#d32f2f',
+        fontSize: '0.95rem',
+        textAlign: 'center',
+    },
     errorPageLayout: {
         display: 'flex',
         flexDirection: 'column',
@@ -78,6 +88,7 @@ function AppContent() {
 
     const [error, setError] = useState<string | null>(null);
     const didFetchDataRef = useRef(false);
+    const didRetryCorrelationRef = useRef(false);
 
     const stationsJSON = useAppSelector(selectStationsJSON);
     const cities = useAppSelector(selectCities);
@@ -85,6 +96,15 @@ function AppContent() {
 
     const liveDataStatus = useAppSelector(selectLiveDataStatus);
     const cityDataStatus = useAppSelector(selectCityDataStatus);
+
+    const normalizeCityToken = (value: string): string => {
+        return value
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, ' ')
+            .trim()
+            .toLowerCase();
+    };
 
     // Handle redirect from error.html
     useEffect(() => {
@@ -102,39 +122,104 @@ function AppContent() {
         didFetchDataRef.current = true;
 
         const loadData = async () => {
+            setError(null);
+
             try {
                 // Get today's date for historical data
                 const today = getNow();
                 const month = today.month;
                 const day = today.day;
+                let stations = store.getState().liveData.data?.stations ?? {};
 
                 // Load weather stations first, then cities (which need stations)
-                await dispatch(fetchLiveData()).unwrap();
+                try {
+                    const liveData = await dispatch(fetchLiveData()).unwrap();
+                    stations = liveData?.stations ?? {};
+                } catch (liveDataError) {
+                    console.warn('Live data unavailable, continuing with empty map fallback.', liveDataError);
+                    setError('Live station data is currently unavailable. Showing map with available boundaries only.');
+                }
 
-                // Now load cities with stations and historical data in parallel
-                const stations = store.getState().liveData.data?.stations;
-                if (stations) {
-                    await Promise.all([
-                        dispatch(fetchCityData({ stations })),
-                        dispatch(fetchYearlyMeanByDay({ month, day })),
-                        dispatch(fetchReferenceYearlyHourlyInterpolatedByDay({ month, day }))
-                    ]);
+                // Spain currently runs with local live data only; historical datasets are optional.
+                const yesterday = today.minus({ days: 1 });
+                const requests: Array<Promise<unknown>> = [
+                    dispatch(fetchCityData({ stations })).unwrap(),
+                    dispatch(fetchYearlyMeanByDay({ month, day })).unwrap(),
+                    dispatch(fetchDailyRecentByDate({ year: today.year, month, day })).unwrap(),
+                    dispatch(fetchDailyRecentByDate({
+                        year: yesterday.year,
+                        month: yesterday.month,
+                        day: yesterday.day,
+                    })).unwrap(),
+                ];
+
+                if (ACTIVE_COUNTRY_PROFILE.id !== 'spain') {
+                    requests.push(
+                        dispatch(fetchReferenceYearlyHourlyInterpolatedByDay({ month, day })).unwrap(),
+                    );
+                }
+
+                // Load all dependent datasets; keep the app running even if some fail.
+                const results = await Promise.allSettled(requests);
+
+                const failed = results.filter(result => result.status === 'rejected');
+                if (failed.length > 0 && !error) {
+                    setError('Some datasets are currently unavailable. The map will show what can be loaded.');
                 }
             } catch (error) {
                 console.error("Failed to load data:", error);
-                setError("There is currently no data available. Please try again later.");
+                setError('Some data could not be loaded. The map will continue with available data.');
             }
         };
 
         loadData();
     }, [dispatch]);
 
-    // Correlation is now built into fetchCityData - no separate effect needed
+    // If live station metadata was unavailable during initial load, cities may have no stationId.
+    // Retry correlation once station metadata arrives.
+    useEffect(() => {
+        if (didRetryCorrelationRef.current) {
+            return;
+        }
+
+        if (!stationsJSON || !cities || Object.keys(stationsJSON).length === 0) {
+            return;
+        }
+
+        const hasMissingStationIds = Object.values(cities).some((city) => !city.stationId);
+        if (!hasMissingStationIds) {
+            didRetryCorrelationRef.current = true;
+            return;
+        }
+
+        didRetryCorrelationRef.current = true;
+        dispatch(fetchCityData({ stations: stationsJSON })).catch(() => undefined);
+    }, [dispatch, stationsJSON, cities]);
 
     // Set default city when cities are loaded
     useEffect(() => {
-        if (selectedCityId || !cities) {
+        if (!cities) {
             return;
+        }
+
+        if (selectedCityId && cities[selectedCityId]) {
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const queryCity = params.get('city');
+        const normalizedQueryCity = queryCity ? normalizeCityToken(queryCity) : '';
+
+        if (normalizedQueryCity) {
+            const queryMatch = Object.values(cities).find(city =>
+                normalizeCityToken(city.id) === normalizedQueryCity
+                || normalizeCityToken(city.name) === normalizedQueryCity
+            );
+
+            if (queryMatch) {
+                dispatch(selectCity(queryMatch.id, false));
+                return;
+            }
         }
 
         // Try to find the default city in the predefined list first
@@ -146,6 +231,22 @@ function AppContent() {
             dispatch(selectCity(city.id, false));
         }
     }, [cities, selectedCityId, dispatch]);
+
+    useEffect(() => {
+        if (!selectedCityId || !cities) {
+            return;
+        }
+
+        const city = cities[selectedCityId];
+        if (!city) {
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('city', city.name);
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState(null, '', nextUrl);
+    }, [cities, selectedCityId]);
 
     // Load DilyRecentByStation data when a city is selected
     useEffect(() => {
@@ -174,15 +275,11 @@ function AppContent() {
         return () => (
             <>
                 <Suspense fallback={<div style={getLoadingContainerStyle()}>Loading map data...</div>}>
-                    {!error && (
-                        <>
-                            {LazyEntries.map(entry => {
-                                const Comp = entry.Comp;
-                                return <Comp key={entry.id} />;
-                            })}
-                        </>
-                    )}
-                    {error && <div style={styles.errorContainer}>{error}</div>}
+                    {error && <div style={styles.warningBanner}>{error}</div>}
+                    {LazyEntries.map(entry => {
+                        const Comp = entry.Comp;
+                        return <Comp key={entry.id} />;
+                    })}
                 </Suspense>
                 <Closing />
             </>
@@ -198,10 +295,7 @@ function AppContent() {
     return (
         <div style={appContainerStyle}>
             <Header />
-            <main style={error ? {
-                ...contentWrapperStyle,
-                ...styles.errorPageLayout
-            } : contentWrapperStyle}>
+            <main style={contentWrapperStyle}>
                 <Routes>
                     <Route path="/" element={<MainPage />} />
                     <Route path="/impressum" element={

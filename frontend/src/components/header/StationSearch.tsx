@@ -168,7 +168,7 @@ const StationSearch = ({ showSearchIcon = true }: StationSearchProps) => {
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder="Stadt suchen..."
+                    placeholder="Search city..."
                     value={searchTerm}
                     onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -185,7 +185,6 @@ const StationSearch = ({ showSearchIcon = true }: StationSearchProps) => {
                         {filteredCities.length > 0 ? (
                             filteredCities.map((city, index) => {
                                 const data: StationData | undefined = liveData[city.stationId!];
-                                if (!data) return null;
 
                                 const hasTemperature = data.temperature !== undefined;
                                 const isSelected = city.id === selectedCityId;
@@ -221,7 +220,7 @@ const StationSearch = ({ showSearchIcon = true }: StationSearchProps) => {
                                 ...(isMobile && styles.itemMobile),
                                 cursor: 'default',
                             }}>
-                                Keine Städte gefunden
+                                No cities found
                             </div>
                         )}
                     </div>

@@ -107,7 +107,7 @@ const Footer = () => {
                     ...(isMobile && styles.linksMobile),
                 }}>
                     <HoverLink to="/">Home</HoverLink>
-                    <HoverLink to="/impressum">Impressum</HoverLink>
+                    <HoverLink to="/impressum">Legal Notice</HoverLink>
                     <HoverLink
                         href="https://github.com/tsafs/itishotnow"
                         target="_blank"

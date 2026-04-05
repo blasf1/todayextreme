@@ -5,6 +5,7 @@ import {
 } from '../classes/ReferenceYearlyHourlyInterpolatedByDay';
 import { fetchAndParseCSV, parseOptionalFloat } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
 
 /**
  * Service to fetch interpolated hourly historical temperature data for a specific day
@@ -29,52 +30,65 @@ export const fetchReferenceYearlyHourlyInterpolatedByDayData = async (
 ): Promise<ReferenceYearlyHourlyInterpolatedByDayByStationId> => {
     const formattedMonth = String(month).padStart(2, '0');
     const formattedDay = String(day).padStart(2, '0');
+    const dataPath = `${ACTIVE_COUNTRY_PROFILE.dataRoot}/interpolated_hourly/1961_1990/interpolated_hourly_temperatures_1961_1990_${formattedMonth}_${formattedDay}.csv`;
 
-    return fetchAndParseCSV<ReferenceYearlyHourlyInterpolatedByDayByStationId>(
-        buildUrl(
-            `/data/interpolated_hourly/1961_1990/interpolated_hourly_temperatures_1961_1990_${formattedMonth}_${formattedDay}.csv`,
-            false
-        ),
-        (rows, headers) => {
-            if (!headers || headers.length === 0) {
-                throw new Error(`Missing header for interpolated hourly data of ${formattedMonth}/${formattedDay}.`);
-            }
-
-            const result: ReferenceYearlyHourlyInterpolatedByDayByStationId = {};
-
-            for (const values of rows) {
-                const stationId = values[0];
-                if (!stationId) continue;
-
-                const builder = new ReferenceYearlyHourlyInterpolatedByDayBuilder().setStationId(stationId);
-
-                for (let columnIndex = 1; columnIndex < headers.length; columnIndex += 1) {
-                    const columnName = headers[columnIndex];
-                    const hourKey = parseHourKey(columnName);
-
-                    if (!hourKey || columnIndex >= values.length) continue;
-
-                    const value = parseOptionalFloat(values[columnIndex]);
-                    builder.setHourValue(hourKey, value);
+    try {
+        return await fetchAndParseCSV<ReferenceYearlyHourlyInterpolatedByDayByStationId>(
+            buildUrl(dataPath, false),
+            (rows, headers) => {
+                if (!headers || headers.length === 0) {
+                    throw new Error(`Missing header for interpolated hourly data of ${formattedMonth}/${formattedDay}.`);
                 }
 
-                const record = builder.build();
-                if (record) {
-                    result[stationId] = record.toJSON();
+                const result: ReferenceYearlyHourlyInterpolatedByDayByStationId = {};
+
+                for (const values of rows) {
+                    const stationId = values[0];
+                    if (!stationId) continue;
+
+                    const builder = new ReferenceYearlyHourlyInterpolatedByDayBuilder().setStationId(stationId);
+
+                    for (let columnIndex = 1; columnIndex < headers.length; columnIndex += 1) {
+                        const columnName = headers[columnIndex];
+                        const hourKey = parseHourKey(columnName);
+
+                        if (!hourKey || columnIndex >= values.length) continue;
+
+                        const value = parseOptionalFloat(values[columnIndex]);
+                        builder.setHourValue(hourKey, value);
+                    }
+
+                    const record = builder.build();
+                    if (record) {
+                        result[stationId] = record.toJSON();
+                    }
                 }
-            }
 
-            if (Object.keys(result).length === 0) {
-                throw new Error(`No hourly data rows parsed for day ${formattedMonth}/${formattedDay}.`);
-            }
+                if (Object.keys(result).length === 0) {
+                    throw new Error(`No hourly data rows parsed for day ${formattedMonth}/${formattedDay}.`);
+                }
 
-            return result;
-        },
-        {
-            validateHeaders: ['station_id'],
-            errorContext: `interpolated hourly data for ${formattedMonth}/${formattedDay}`
+                return result;
+            },
+            {
+                validateHeaders: ['station_id'],
+                errorContext: `interpolated hourly data for ${formattedMonth}/${formattedDay}`
+            }
+        );
+    } catch (error) {
+        if (
+            error instanceof Error
+            && (
+                error.message.includes('404')
+                || error.message.includes('Missing required headers: station_id')
+            )
+        ) {
+            console.warn(`Missing interpolated hourly data for ${formattedMonth}/${formattedDay}; continuing with empty fallback.`);
+            return {};
         }
-    );
+
+        throw error;
+    }
 };
 
 const parseHourKey = (value: string | undefined): ReferenceHourKey | null => {

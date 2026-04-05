@@ -65,7 +65,7 @@ export const useTemperatureAnomalyPlotData = ({
             console.warn('[TemperatureAnomaly] Invalid selected date provided.');
             return {
                 ...initialResult,
-                error: 'Ungültiges Datum für die Visualisierung',
+                error: 'Invalid date for visualization',
             };
         }
 
@@ -95,7 +95,7 @@ export const useTemperatureAnomalyPlotData = ({
             return {
                 ...initialResult,
                 targetDate: luxonDate,
-                error: `Keine Daten für ${todayMonthDay} im ausgewählten Zeitraum gefunden`,
+                error: `No data found for ${todayMonthDay} in the selected period`,
             };
         }
 
@@ -135,7 +135,7 @@ export const useTemperatureAnomalyPlotData = ({
             return {
                 ...initialResult,
                 targetDate: luxonDate,
-                error: 'Keine ausreichenden Basisdaten zur Berechnung der Abweichung',
+                error: 'Insufficient baseline data to calculate anomaly',
             };
         }
 

@@ -79,7 +79,7 @@ export function createPlot(
             Plot.text([todayDataPoint], {
                 x: "year",
                 y: (d) => d.anomaly + 0.7,
-                text: () => (isToday ? "Heute" : targetDate.setLocale('de').toFormat("d. MMMM yyyy")),
+                text: () => (isToday ? "Today" : targetDate.setLocale('en').toFormat("d MMMM yyyy")),
                 className: "today-label",
             })
         );
@@ -90,7 +90,7 @@ export function createPlot(
             Plot.text([{ year: 1975, anomaly: 1.6 }], {
                 x: "year",
                 y: "anomaly",
-                text: () => `Trend: ${formattedTrend}°C / Jahrzehnt`,
+                text: () => `Trend: ${formattedTrend}°C / decade`,
                 fontSize: 12,
                 fontWeight: "bold",
                 fill: "#333",
@@ -107,9 +107,9 @@ export function createPlot(
                 dy: -17,
                 frameAnchor: "top",
                 text: (d) => [
-                    DateTime.fromISO(d.date).setLocale('de').toFormat("d. MMMM yyyy"),
-                    `Durchschnittstemperatur: ${d.temperature.toFixed(1)}°C`,
-                    `Abweichung: ${d.anomaly.toFixed(1)}°C`,
+                    DateTime.fromISO(d.date).setLocale('en').toFormat("d MMMM yyyy"),
+                    `Average temperature: ${d.temperature.toFixed(1)}°C`,
+                    `Anomaly: ${d.anomaly.toFixed(1)}°C`,
                 ].join("   "),
                 className: "hover-text",
             })
@@ -117,9 +117,9 @@ export function createPlot(
     );
 
     const plot = Plot.plot({
-        title: html`<p class="title">Abweichung zu 1961 bis 1990 in ${selectedCityName}</p>`,
+        title: html`<p class="title">Anomaly vs 1961 to 1990 in ${selectedCityName}</p>`,
         y: {
-            label: "Temperaturabweichung (°C)",
+            label: "Temperature anomaly (°C)",
             grid: true,
             nice: true,
             labelAnchor: "center",

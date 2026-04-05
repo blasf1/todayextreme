@@ -1,6 +1,7 @@
 import { RollingAverageRecordBuilder, type RollingAverageRecordList } from '../classes/RollingAverageRecord';
 import { fetchAndParseCSV, parseOptionalFloat } from './utils/csvUtils.js';
 import { buildUrl } from './utils/serviceUtils.js';
+import { ACTIVE_COUNTRY_PROFILE } from '../config/countryProfiles.js';
 
 /**
  * Fetch rolling average climate metrics for a specific station.
@@ -26,7 +27,7 @@ import { buildUrl } from './utils/serviceUtils.js';
  */
 export const fetchRollingAverageForStation = async (stationId: string): Promise<RollingAverageRecordList> => {
     return fetchAndParseCSV<RollingAverageRecordList>(
-        buildUrl(`/data/rolling_average/1951_2024/daily/${stationId}_1951-2024_avg_7d.csv`, false),
+        buildUrl(`${ACTIVE_COUNTRY_PROFILE.dataRoot}/rolling_average/1951_2024/daily/${stationId}_1951-2024_avg_7d.csv`, false),
         (rows, headers) => {
             if (!headers || headers.length === 0 || headers[0] !== 'date') {
                 throw new Error(`Unexpected header format for rolling average data of ${stationId}.`);
